@@ -1,0 +1,39 @@
+# Paste Export Variables
+
+export ZONE=europe-west1-b
+###
+export PROJECT_ID="${DEVSHELL_PROJECT_ID:-$(gcloud info --format='value(config.project)')}"
+gcloud services enable compute.googleapis.com iam.googleapis.com iamcredentials.googleapis.com monitoring.googleapis.com logging.googleapis.com notebooks.googleapis.com aiplatform.googleapis.com bigquery.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com container.googleapis.com
+SERVICE_ACCOUNT_ID=vertex-custom-training-sa
+gcloud iam service-accounts create $SERVICE_ACCOUNT_ID --description="A custom service account for Vertex custom training with Tensorboard" --display-name="Vertex AI Custom Training"
+PROJECT_ID=$(gcloud config get-value core/project)
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$SERVICE_ACCOUNT_ID@$PROJECT_ID.iam.gserviceaccount.com --role="roles/storage.admin"
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$SERVICE_ACCOUNT_ID@$PROJECT_ID.iam.gserviceaccount.com --role="roles/bigquery.admin"
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$SERVICE_ACCOUNT_ID@$PROJECT_ID.iam.gserviceaccount.com --role="roles/aiplatform.user"
+export NOTEBOOK_NAME="awesome-jupyter"
+export MACHINE_TYPE="e2-standard-2"
+gcloud notebooks instances create $NOTEBOOK_NAME --location=$ZONE --vm-image-project=deeplearning-platform-release --vm-image-family=tf-2-11-cu113-notebooks --machine-type=$MACHINE_TYPE
+while true; do
+  STATE=$(gcloud notebooks instances list --location=$ZONE --format='value(STATE)')
+  if [[ "$STATE" == "ACTIVE" ]]; then
+    echo "notebook instance STATE: $STATE"
+    break
+  else
+    echo "notebook instance  STATE: $STATE"
+    sleep 10
+  fi
+done
+cat > remote.sh << EOF_END
+cd /home/jupyter
+sudo -u jupyter git clone --depth=1 https://github.com/GoogleCloudPlatform/training-data-analyst
+cd /home/jupyter/training-data-analyst/blogs/bitcoin_network/
+sudo -u jupyter /opt/conda/bin/ipython -c "%run /home/jupyter/training-data-analyst/blogs/bitcoin_network/visualizing_the_10000_pizza_bitcoin_network.ipynb"
+EOF_END
+failable_function() {
+  gcloud compute scp remote.sh $NOTEBOOK_NAME:/tmp --project=$PROJECT_ID --zone=$ZONE --quiet
+}
+until failable_function; do
+  echo "Retrying..."
+  sleep 1
+done
+gcloud compute ssh $NOTEBOOK_NAME --project=$PROJECT_ID --zone=$ZONE --quiet --command="bash /tmp/remote.sh"
