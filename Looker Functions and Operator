@@ -1,0 +1,28 @@
+explore: +flights {
+  query: task_1 {
+    dimensions: [depart_week, distance_tiered]
+    measures: [count]
+    filters: [flights.depart_date: "2003"]
+    pivots: [distance_tiered]
+  }
+  query: task_2 {
+    dimensions: [aircraft_origin.state]
+    measures: [percent_cancelled]
+    filters: [flights.depart_date: "2000"]
+  }
+  query: task_3 {
+    dimensions: [aircraft_origin.state]
+    measures: [cancelled_count, count]
+    filters: [flights.depart_date: "2004"]
+  }
+  query: task_4 {
+    dimensions: [carriers.name]
+    measures: [total_distance]
+  }
+  query: task_5 {
+    dimensions: [depart_year, distance_tiered]
+    measures: [count]
+    filters: [flights.depart_date: "after 2000/01/01"]
+    pivots: [depart_year]
+  }
+}
