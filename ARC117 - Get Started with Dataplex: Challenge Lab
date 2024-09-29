@@ -1,0 +1,31 @@
+I wrote the complete script for ARC117 - Get Started with Dataplex: Challenge Lab and eliminated all manual steps.
+```bash
+# Paste Export Variables
+export DEFAULT_REGION=
+###
+export PROJECT_ID="${DEVSHELL_PROJECT_ID:-$(gcloud info --format='value(config.project)')}"
+gcloud services enable datacatalog.googleapis.com
+gcloud services enable dataplex.googleapis.com
+gcloud dataplex lakes create customer-engagements --location=$DEFAULT_REGION --display-name="Customer Engagements"
+gcloud dataplex zones create raw-event-data --location=$DEFAULT_REGION --lake=customer-engagements --display-name="Raw Event Data" --type=RAW --resource-location-type=SINGLE_REGION --discovery-enabled
+# FINISHED CHECKPOINT_1
+gsutil mb -p $PROJECT_ID -c REGIONAL -l $DEFAULT_REGION gs://$PROJECT_ID
+gcloud dataplex assets create raw-event-files \
+--location=$DEFAULT_REGION \
+--lake=customer-engagements \
+--zone=raw-event-data \
+--display-name="Raw Event Files" \
+--resource-type=STORAGE_BUCKET \
+--resource-name=projects/$PROJECT_ID/buckets/$PROJECT_ID
+# FINISHED CHECKPOINT_2
+gcloud data-catalog tag-templates create protected_raw_data_template --location=$DEFAULT_REGION --field=id=protected_raw_data_flag,display-name="Protected Raw Data Flag",type='enum(Y|N)' --display-name="Protected Raw Data Template"
+ENTRY_NAME=$(gcloud data-catalog entries lookup "dataplex:$PROJECT_ID.$DEFAULT_REGION.customer-engagements.raw-event-data" --format="value(name)")
+echo $ENTRY_NAME
+cat > tag_file.json << EOF
+  {
+    "protected_raw_data_flag": "Y"
+  }
+EOF
+gcloud data-catalog tags create --entry=${ENTRY_NAME} --tag-template=protected_raw_data_template --tag-template-location=$DEFAULT_REGION --tag-file=tag_file.json
+# FINISHED CHECKPOINT_3
+```
